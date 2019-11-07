@@ -49,7 +49,7 @@ int cols;
 
 int color = 0;
 
-const int link_ratio = 50; // percentage chances link
+const int link_ratio = 60; // percentage chances link
 const int link_up = 0b0001;
 const int link_down = 0b0010;
 const int link_left = 0b0100;
@@ -77,29 +77,25 @@ void debug_links(struct cell *a) {
 	}
 }
 
-void create_links(struct cell *a, int force) {
+void create_links(struct cell *a) {
 	int col, row;
 	for (int i = 0; i < rows * cols; i++) {
 		col = i % cols;
 		row = i / cols;
 		a[row * cols + row].links = 0;
 	}
-	int up; 
+
 	for (int i = 0; i < rows * cols; i++) {
 		col = i % cols;
 		row = i / cols;
 		if (row < (rows - 1)) {
-			up = false;
-
-			if ((rand() % 100) < link_ratio) { 
-				up = true;
+			if (((rand() % 100) < link_ratio)) { 
 				a[row * cols + col].links = a[row * cols + col].links | link_down;
 				a[(row + 1) * cols + col].links = a[(row + 1) * cols + col].links | link_up;
 			}
 		}
 		if (col < (cols - 1)) {
-			if ((force & !up) |
-				 ((rand() % 100) < link_ratio)) { 
+			if (((rand() % 100) < link_ratio)) { 
 				a[row * cols + col].links = a[row * cols + col].links | link_right;
 				a[row * cols + col + 1].links = a[row * cols + col + 1].links | link_left;
 			}
@@ -107,12 +103,20 @@ void create_links(struct cell *a, int force) {
 	} 
 }
 
-
 int redraw(struct cell *a, int row, int col) {
 	int color = a[row * cols + col].color;
 	attron(COLOR_PAIR(color));
 	mvprintw(row, col, " ");
 	attroff(COLOR_PAIR(color)); 
+}
+
+int catch_up(struct cell *a) {
+	for (int i = 0; i < rows * cols; i++) {
+		if (abs(color - a[i].color) > 2) {
+			a[i].color = color;
+			redraw(a, i / cols, i % cols);
+		}
+	}
 }
 
 int compare(struct cell *a, int row, int col, int row2, int col2) {
@@ -208,7 +212,7 @@ int main(int arg, char *argv[]) {
 	cols = w.ws_col;
 	rows = w.ws_row;
 	init(&a);
-	create_links(a, true);
+	create_links(a);
 
 	//a[0, 2].color=5;
 	//a[4, 33].length=9;
@@ -232,6 +236,7 @@ int main(int arg, char *argv[]) {
 		}
 		i++;
 		change = propagate(a); 
+		catch_up(a); // purely estaetic
 		refresh();
 		usleep(50000);
 	}
