@@ -107,12 +107,16 @@ void debug_links(struct cell *a) {
 	}
 }
 
-void create_links(struct cell *a) {
+int generate_link_ratio() {
+	return rand() % 30 + 30;
+} 
+
+void create_links(struct cell *a, int link_ratio) {
 	int col, row;
 	for (int i = 0; i < rows * cols; i++) {
 		col = i % cols;
 		row = i / cols;
-		a[row * cols + row].links = 0;
+		a[row * cols + col].links = 0;
 	}
 
 	for (int i = 0; i < rows * cols; i++) {
@@ -144,7 +148,7 @@ int redraw(struct cell *a, int row, int col) {
 
 int catch_up(struct cell *a) {
 	for (int i = 0; i < rows * cols; i++) {
-		if (abs(color - a[i].color) > 10) {
+		if (abs(color - a[i].color) > 20) {
 			a[i].color = (color - 1) % max_col;
 			redraw(a, i / cols, i % cols);
 		}
@@ -250,23 +254,29 @@ void run() {
 	start_color();
 	init_colors();
 	struct cell *a;
-	cols = w.ws_col;
-	rows = w.ws_row;
+	cols = w.ws_col - 2;
+	rows = w.ws_row - 2;
 	init(&a);
-	create_links(a);
+	//create_links(a);
 
 	int change = 1;
 	int i = 0;
+
+	int freq_col = 20;
+	int freq_link = 100;
+
 	while (true) {
-		if (i % 10 == 0) {
+		if (i % freq_col == 0) {
 			set_new_color(a);
-			i = 0;
 		}
-		i++;
+		if (i % freq_link == 0) {
+			create_links(a, generate_link_ratio());
+		}
+		i = (i + 1) % (freq_link);
 		change = propagate(a); 
 		catch_up(a); // purely estaetic
 		refresh();
-		usleep(50000);
+		usleep(20000);
 	} 
 	getchar(); 
 	endwin();
