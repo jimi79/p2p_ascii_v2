@@ -35,6 +35,11 @@ at the end of end_propagate, if new != old, then refresh display
 
 */
 
+
+// i need to do the catching up properly, not use a length, and find a way to compare which is the best.
+// the catch_up begins to be mandatory. or i could base everythg on length and max_length, and max_length would be reset, but during reset, everythg would sucks
+// so i def need a proper way. like old_value = value - 20 % max_col, somethg
+
 struct cell {
 	int color;
 	int new_color;
@@ -48,8 +53,8 @@ int rows;
 int cols;
 
 int colors[2000];
-int color;
 int max_col;
+int color;
 
 const int link_ratio = 50; // percentage chances link
 const int link_up = 0b0001;
@@ -58,7 +63,11 @@ const int link_left = 0b0100;
 const int link_right = 0b1000;
 
 void init_colors() {
-	// not exactly that
+	for (int i = 0; i < 256; i++) {
+		init_pair(i, 0, i);
+	}
+	color = 0;
+
 	max_col = 0;
 	for (int red = 0; red < 6; red++) {
 		for (int green = 0; green < 6; green++) {
@@ -126,24 +135,29 @@ void create_links(struct cell *a) {
 
 int redraw(struct cell *a, int row, int col) {
 	int color = colors[a[row * cols + col].color];
-	attron(COLOR_PAIR(colors[color]));
+	attron(COLOR_PAIR(color));
 	mvprintw(row, col, " ");
-	attroff(COLOR_PAIR(colors[color])); 
+	attroff(COLOR_PAIR(color)); 
 }
+
+
 
 int catch_up(struct cell *a) {
 	for (int i = 0; i < rows * cols; i++) {
 		if (abs(color - a[i].color) > 10) {
-			a[i].color = color;
+			a[i].color = (color - 1) % max_col;
 			redraw(a, i / cols, i % cols);
 		}
 	}
 }
 
 int compare(struct cell *a, int row, int col, int row2, int col2) {
-	if (a[row2 * cols + col2].length > a[row * cols + col].new_length) { 
+	int next_cell_length = a[row2 * cols + col2].length;
+	int my_length = a[row * cols + col].new_length;
+	if ((my_length < next_cell_length) |
+		(my_length > next_cell_length + max_col / 2)) {
 		a[row * cols + col].changed = true;
-		a[row * cols + col].new_length = a[row2 * cols + col2].length;
+		a[row * cols + col].new_length = a[row2 * cols + col2].length % 1000;
 		a[row * cols + col].new_color = a[row2 * cols + col2].color;
 		return true;
 	} else {
@@ -201,7 +215,7 @@ void set_new_color(struct cell *a) {
 	// pick a random cell, define a new color and inc length
 	int i = rand() % (rows * cols);
 	a[i].color = color;
-	a[i].length = a[i].length + 1;
+	a[i].length = (a[i].length + 1) % max_col;
 
 	int col, row;
 	col = i % cols;
@@ -210,36 +224,31 @@ void set_new_color(struct cell *a) {
 	redraw(a, row, col);
 }
 
-int test() {
-	mvprintw(0, 0, "aa");
+void test() {
+	initscr();
+	curs_set(0);
+	noecho();
+	start_color(); // ncurses
+	init_colors(); // my stuff
 	for (int i = 0; i < max_col; i++) {
 		attron(COLOR_PAIR(colors[i]));
-		mvprintw(i % 80, i / 80, " ");
+		mvprintw(i / 80, i % 80, "a");
 		attroff(COLOR_PAIR(colors[i]));
 	}
+	refresh();
+	getchar();
+	endwin(); 
 }
 
-
-int main(int arg, char *argv[]) {
+void run() {
 	struct winsize w;
 	srand(time(NULL));
 	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
 	initscr();
 	curs_set(0);
 	noecho();
-	init_colors();
 	start_color();
-// init_pair(1, 0, COLOR_GREEN);
-// init_pair(2, 0, COLOR_BLUE);
-// init_pair(3, 0, COLOR_WHITE);
-// init_pair(4, 0, COLOR_RED);
-// init_pair(5, 0, COLOR_YELLOW);
-// init_pair(6, 0, COLOR_CYAN);
-// init_pair(7, 0, COLOR_BLACK);
-	for (int i = 0; i < 256; i++) {
-		init_pair(i, 0, i);
-	}
-
+	init_colors();
 	struct cell *a;
 	cols = w.ws_col;
 	rows = w.ws_row;
@@ -258,13 +267,13 @@ int main(int arg, char *argv[]) {
 		catch_up(a); // purely estaetic
 		refresh();
 		usleep(50000);
-	}
-
+	} 
 	getchar(); 
-
 	endwin();
-	free(a); 
+}
 
-
+int main(int arg, char *argv[]) {
+	run();
+	//test();
 	return 0;
 }
