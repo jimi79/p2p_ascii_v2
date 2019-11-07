@@ -112,7 +112,7 @@ int redraw(struct cell *a, int row, int col) {
 
 int catch_up(struct cell *a) {
 	for (int i = 0; i < rows * cols; i++) {
-		if (abs(color - a[i].color) > 2) {
+		if (abs(color - a[i].color) > 10) {
 			a[i].color = color;
 			redraw(a, i / cols, i % cols);
 		}
@@ -179,7 +179,7 @@ void set_new_color(struct cell *a) {
 	color = (color + 1) % 240;
 	// pick a random cell, define a new color and inc length
 	int i = rand() % (rows * cols);
-	a[i].color = color + 16;
+	a[i].color = color;
 	a[i].length = a[i].length + 1;
 
 	int col, row;
@@ -204,8 +204,8 @@ int main(int arg, char *argv[]) {
 // init_pair(5, 0, COLOR_YELLOW);
 // init_pair(6, 0, COLOR_CYAN);
 // init_pair(7, 0, COLOR_BLACK);
-	for (int i = 0; i < 256; i++) {
-		init_pair(i, 0, i);
+	for (int i = 0; i < 240; i++) {
+		init_pair(i, 0, i + 16);
 	}
 
 	struct cell *a;
