@@ -47,17 +47,38 @@ struct cell {
 int rows;
 int cols;
 
-int color = 0;
+int colors[2000];
+int color;
+int max_col;
 
-const int link_ratio = 60; // percentage chances link
+const int link_ratio = 50; // percentage chances link
 const int link_up = 0b0001;
 const int link_down = 0b0010;
 const int link_left = 0b0100;
 const int link_right = 0b1000;
 
-/*attron(COLOR_PAIR(1));
-	mvaddstr(5, 5, "test   ");
-	attroff(COLOR_PAIR(1)); */
+void init_colors() {
+	// not exactly that
+	max_col = 0;
+	for (int red = 0; red < 6; red++) {
+		for (int green = 0; green < 6; green++) {
+			for (int blue = 0; blue < 6; blue++) {
+				colors[max_col] = 16 + red * 36 + green * 6 + blue;
+				max_col++;
+			}
+			if ((red < 6) | (green < 6)) {
+				for (int blue = 5; blue >= 0; blue--) {
+					colors[max_col] = 16 + red * 36 + green * 6 + blue;
+					max_col++;
+				} 
+			}
+		}
+	}
+	for (int white = 255; white >= 232; white--) {
+		colors[max_col] = white;
+		max_col++;
+	}
+}
 
 void init(struct cell **a) {
 	*a = malloc(sizeof(struct cell) * rows * cols);
@@ -104,10 +125,10 @@ void create_links(struct cell *a) {
 }
 
 int redraw(struct cell *a, int row, int col) {
-	int color = a[row * cols + col].color;
-	attron(COLOR_PAIR(color));
+	int color = colors[a[row * cols + col].color];
+	attron(COLOR_PAIR(colors[color]));
 	mvprintw(row, col, " ");
-	attroff(COLOR_PAIR(color)); 
+	attroff(COLOR_PAIR(colors[color])); 
 }
 
 int catch_up(struct cell *a) {
@@ -176,7 +197,7 @@ int propagate(struct cell *a) {
 }
 
 void set_new_color(struct cell *a) {
-	color = (color + 1) % 240;
+	color = (color + 1) % max_col;
 	// pick a random cell, define a new color and inc length
 	int i = rand() % (rows * cols);
 	a[i].color = color;
@@ -189,6 +210,16 @@ void set_new_color(struct cell *a) {
 	redraw(a, row, col);
 }
 
+int test() {
+	mvprintw(0, 0, "aa");
+	for (int i = 0; i < max_col; i++) {
+		attron(COLOR_PAIR(colors[i]));
+		mvprintw(i % 80, i / 80, " ");
+		attroff(COLOR_PAIR(colors[i]));
+	}
+}
+
+
 int main(int arg, char *argv[]) {
 	struct winsize w;
 	srand(time(NULL));
@@ -196,6 +227,7 @@ int main(int arg, char *argv[]) {
 	initscr();
 	curs_set(0);
 	noecho();
+	init_colors();
 	start_color();
 // init_pair(1, 0, COLOR_GREEN);
 // init_pair(2, 0, COLOR_BLUE);
@@ -204,8 +236,8 @@ int main(int arg, char *argv[]) {
 // init_pair(5, 0, COLOR_YELLOW);
 // init_pair(6, 0, COLOR_CYAN);
 // init_pair(7, 0, COLOR_BLACK);
-	for (int i = 0; i < 240; i++) {
-		init_pair(i, 0, i + 16);
+	for (int i = 0; i < 256; i++) {
+		init_pair(i, 0, i);
 	}
 
 	struct cell *a;
@@ -213,19 +245,6 @@ int main(int arg, char *argv[]) {
 	rows = w.ws_row;
 	init(&a);
 	create_links(a);
-
-	//a[0, 2].color=5;
-	//a[4, 33].length=9;
-	//mvprintw(5, 5, "test %d", a[0, 2].color);
-	//mvprintw(6, 5, "test %d", a[4, 33].length);
-/*	for (int i = 0; i < 1000; i++) {
-		if (i % 20 == 0) {
-			set_new_color(a);
-		} 
-		propagate(a); 
-	refresh();
-	} */
-
 
 	int change = 1;
 	int i = 0;
