@@ -7,8 +7,8 @@
 
 
 const int with_color = true;
-const int new_color_every = 20;
-const int new_layout_every = 400;
+const int new_color_every = 10;
+const int new_layout_every = 60;
 const int percent = 50; // percent chances of link between two dots
 const int timer = 100; // update display every ms 
 
@@ -124,17 +124,6 @@ int redraw(struct cell *a, int row, int col) {
 	attroff(COLOR_PAIR(color)); 
 
 	//mvprintw(row, col, "%c", db);
-}
-
-
-
-int catch_up(struct cell *a) {
-	for (int i = 0; i < rows * cols; i++) {
-		if (abs(color - a[i].color) > 10) {
-			a[i].color = (color - 1) % max_col;
-			redraw(a, i / cols, i % cols);
-		}
-	}
 }
 
 int compare(struct cell *a, int row, int col, int row2, int col2) {
@@ -262,7 +251,6 @@ void run() {
 		}
 		i = (i + 1) % (new_layout_every * new_color_every);
 		change = propagate(a); 
-		//catch_up(a); // purely estaetic
 		refresh();
 		usleep(timer * 1000);
 	} 
