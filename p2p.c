@@ -6,12 +6,10 @@
 #include <time.h>
 
 
-const int with_color = false;
-//const int new_color_every = 20;
-//const int new_layout_every = 1000;
-const int new_color_every = 10;
-const int new_layout_every = 20;
-const int percent = 60; // percent chances of link between two dots
+const int with_color = true;
+const int new_color_every = 20;
+const int new_layout_every = 400;
+const int percent = 50; // percent chances of link between two dots
 const int timer = 100; // update display every ms 
 
 
@@ -30,6 +28,7 @@ int cols;
 int colors[2000];
 int max_col;
 int color;
+int max_length;
 
 const int link_up = 0b0001;
 const int link_down = 0b0010;
@@ -59,8 +58,8 @@ void init_colors() {
 			}
 		}
 	}
-	//for (int white = 255; white >= 232; white--) {
-	for (int white = 255; white >= 250; white--) {
+	for (int white = 255; white >= 232; white--) {
+	//for (int white = 255; white >= 250; white--) {
 		colors[max_col] = white;
 		max_col++;
 	}
@@ -120,11 +119,11 @@ int redraw(struct cell *a, int row, int col) {
 	char da[200] = "0123456789abcdefghijklmnopqrstuvwxyz";
 	char db = da[a[row * cols + col].color];
 
-	/*attron(COLOR_PAIR(color));
+	attron(COLOR_PAIR(color));
 	mvprintw(row, col, " ");
-	attroff(COLOR_PAIR(color)); */
+	attroff(COLOR_PAIR(color)); 
 
-	mvprintw(row, col, "%c", db);
+	//mvprintw(row, col, "%c", db);
 }
 
 
@@ -141,10 +140,14 @@ int catch_up(struct cell *a) {
 int compare(struct cell *a, int row, int col, int row2, int col2) {
 	int next_cell_length = a[row2 * cols + col2].length;
 	int my_length = a[row * cols + col].new_length;
-	if ((my_length < next_cell_length) |
-		(my_length > next_cell_length + max_col / 2)) {
+	int diff = next_cell_length - my_length;
+	if (diff < 0) {
+		diff += max_length;
+	}
+
+	if ((diff < max_length / 2) & (diff > 0)) {
 		a[row * cols + col].changed = true;
-		a[row * cols + col].new_length = a[row2 * cols + col2].length % max_col;
+		a[row * cols + col].new_length = a[row2 * cols + col2].length;
 		a[row * cols + col].new_color = a[row2 * cols + col2].color;
 		return true;
 	} else {
@@ -167,18 +170,20 @@ int propagate(struct cell *a) {
 		change = 0;
 		for (int i = 0; i < rows * cols; i++) {
 			col = i % cols;
-			row = i / cols;
-			if (a[row * cols + col].links & link_up) {
-				change = change | compare(a, row, col, row - 1, col);
-			} 
-			if (a[row * cols + col].links & link_down) {
-				change = change | compare(a, row, col, row + 1, col);
-			}
-			if (a[row * cols + col].links & link_right) {
-				change = change | compare(a, row, col, row, col + 1);
-			}
-			if (a[row * cols + col].links & link_left) {
-				change = change | compare(a, row, col, row, col - 1);
+			row = i / cols; 
+			if (!(a[row * cols + col].changed)) { 
+				if (a[row * cols + col].links & link_up) {
+					change = change | compare(a, row, col, row - 1, col);
+				} 
+				if (a[row * cols + col].links & link_down) {
+					change = change | compare(a, row, col, row + 1, col);
+				}
+				if (a[row * cols + col].links & link_right) {
+					change = change | compare(a, row, col, row, col + 1);
+				}
+				if (a[row * cols + col].links & link_left) {
+					change = change | compare(a, row, col, row, col - 1);
+				}
 			}
 		}
 		one_change = one_change | change;
@@ -202,8 +207,7 @@ void set_new_color(struct cell *a) {
 	// pick a random cell, define a new color and inc length
 	int i = rand() % (rows * cols);
 	a[i].color = color;
-	a[i].length = (a[i].length + 1) % max_col;
-
+	a[i].length = (a[i].length + 1) % max_length; 
 	int col, row;
 	col = i % cols;
 	row = i / cols;
@@ -244,28 +248,21 @@ void run() {
 
 	int change = 1;
 	int i = 0;
+	max_length = max_col * 100;
 
+	// if too late, it will be treated as super in advance
+	// to prevent that, if too late, we have to update it
 
 	while (true) { 
-		
-		for (int i = 0; i < 7; i++) { 
-			mvprintw(i, 0, "              ");
-		}
-
 		if (i % new_color_every == 0) {
 			set_new_color(a);
-			mvprintw(2, 0, "newcol");
 		}
 		if (i % new_layout_every == 0) {
 			create_links(a, percent);
-			mvprintw(3, 0, "links");
 		}
 		i = (i + 1) % (new_layout_every * new_color_every);
-		mvprintw(4, 0, "b4pro");
 		change = propagate(a); 
-		mvprintw(6, 0, "afterpro");
 		//catch_up(a); // purely estaetic
-		mvprintw(0, 0, "  %d  ", i);
 		refresh();
 		usleep(timer * 1000);
 	} 
