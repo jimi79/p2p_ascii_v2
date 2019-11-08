@@ -6,39 +6,14 @@
 #include <time.h>
 
 
-/*
+const int with_color = false;
+//const int new_color_every = 20;
+//const int new_layout_every = 1000;
+const int new_color_every = 10;
+const int new_layout_every = 20;
+const int percent = 60; // percent chances of link between two dots
+const int timer = 100; // update display every ms 
 
-I need to store:
-	a color
-	a length
-for each cell
-and also a list of links
-for that, we'll do for each cell: can it communicate with the one on the left
-and the one at the bottom
-	for each communication, there is a one on two change it can
-	if it can, then the one on the bottom can communicate with the one on top
-	and the one on the right can communicate with the one on the left
-	so we would store a struct (can comm with l u d r), actually that would be a int with a binary and (&)
-
-so i need for each cell:
-* last color (for ncurses)
-* length
-* link enabled with what 
-
-* and then for each step, we check each cell
-* if length < , then we update
-but in python, i had a 'previous' and 'after' state list, should i need it now?
-yes i do, bc otherwise each step would be full of ones
-so i will have a time_shift function, that will swap the required ints (length and last color). i think i will just duplicate variables. i would have a 'enter propagate time' that will copy 'new' from 'old', then a copy, that compare cell.new with neighbour.old, and once update is done, i would have a exit_propagate (or begin/end) that will shift variables one with the other
-
-at the end of end_propagate, if new != old, then refresh display
-
-*/
-
-
-// i need to do the catching up properly, not use a length, and find a way to compare which is the best.
-// the catch_up begins to be mandatory. or i could base everythg on length and max_length, and max_length would be reset, but during reset, everythg would sucks
-// so i def need a proper way. like old_value = value - 20 % max_col, somethg
 
 struct cell {
 	int color;
@@ -56,7 +31,6 @@ int colors[2000];
 int max_col;
 int color;
 
-const int link_ratio = 50; // percentage chances link
 const int link_up = 0b0001;
 const int link_down = 0b0010;
 const int link_left = 0b0100;
@@ -69,21 +43,24 @@ void init_colors() {
 	color = 0;
 
 	max_col = 0;
-	for (int red = 0; red < 6; red++) {
-		for (int green = 0; green < 6; green++) {
-			for (int blue = 0; blue < 6; blue++) {
-				colors[max_col] = 16 + red * 36 + green * 6 + blue;
-				max_col++;
-			}
-			if ((red < 6) | (green < 6)) {
-				for (int blue = 5; blue >= 0; blue--) {
+	if (with_color) {
+		for (int red = 0; red < 6; red++) {
+			for (int green = 0; green < 6; green++) {
+				for (int blue = 0; blue < 6; blue++) {
 					colors[max_col] = 16 + red * 36 + green * 6 + blue;
 					max_col++;
-				} 
+				}
+				if ((red < 6) | (green < 6)) {
+					for (int blue = 5; blue >= 0; blue--) {
+						colors[max_col] = 16 + red * 36 + green * 6 + blue;
+						max_col++;
+					} 
+				}
 			}
 		}
 	}
-	for (int white = 255; white >= 232; white--) {
+	//for (int white = 255; white >= 232; white--) {
+	for (int white = 255; white >= 250; white--) {
 		colors[max_col] = white;
 		max_col++;
 	}
@@ -139,16 +116,22 @@ void create_links(struct cell *a, int link_ratio) {
 
 int redraw(struct cell *a, int row, int col) {
 	int color = colors[a[row * cols + col].color];
-	attron(COLOR_PAIR(color));
+
+	char da[200] = "0123456789abcdefghijklmnopqrstuvwxyz";
+	char db = da[a[row * cols + col].color];
+
+	/*attron(COLOR_PAIR(color));
 	mvprintw(row, col, " ");
-	attroff(COLOR_PAIR(color)); 
+	attroff(COLOR_PAIR(color)); */
+
+	mvprintw(row, col, "%c", db);
 }
 
 
 
 int catch_up(struct cell *a) {
 	for (int i = 0; i < rows * cols; i++) {
-		if (abs(color - a[i].color) > 20) {
+		if (abs(color - a[i].color) > 10) {
 			a[i].color = (color - 1) % max_col;
 			redraw(a, i / cols, i % cols);
 		}
@@ -161,7 +144,7 @@ int compare(struct cell *a, int row, int col, int row2, int col2) {
 	if ((my_length < next_cell_length) |
 		(my_length > next_cell_length + max_col / 2)) {
 		a[row * cols + col].changed = true;
-		a[row * cols + col].new_length = a[row2 * cols + col2].length % 1000;
+		a[row * cols + col].new_length = a[row2 * cols + col2].length % max_col;
 		a[row * cols + col].new_color = a[row2 * cols + col2].color;
 		return true;
 	} else {
@@ -254,29 +237,37 @@ void run() {
 	start_color();
 	init_colors();
 	struct cell *a;
-	cols = w.ws_col - 2;
-	rows = w.ws_row - 2;
+	cols = w.ws_col;
+	rows = w.ws_row;
 	init(&a);
-	//create_links(a);
+	create_links(a, percent);
 
 	int change = 1;
 	int i = 0;
 
-	int freq_col = 20;
-	int freq_link = 100;
 
-	while (true) {
-		if (i % freq_col == 0) {
+	while (true) { 
+		
+		for (int i = 0; i < 7; i++) { 
+			mvprintw(i, 0, "              ");
+		}
+
+		if (i % new_color_every == 0) {
 			set_new_color(a);
+			mvprintw(2, 0, "newcol");
 		}
-		if (i % freq_link == 0) {
-			create_links(a, generate_link_ratio());
+		if (i % new_layout_every == 0) {
+			create_links(a, percent);
+			mvprintw(3, 0, "links");
 		}
-		i = (i + 1) % (freq_link);
+		i = (i + 1) % (new_layout_every * new_color_every);
+		mvprintw(4, 0, "b4pro");
 		change = propagate(a); 
-		catch_up(a); // purely estaetic
+		mvprintw(6, 0, "afterpro");
+		//catch_up(a); // purely estaetic
+		mvprintw(0, 0, "  %d  ", i);
 		refresh();
-		usleep(20000);
+		usleep(timer * 1000);
 	} 
 	getchar(); 
 	endwin();
